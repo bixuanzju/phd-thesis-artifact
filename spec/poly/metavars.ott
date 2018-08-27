@@ -1,0 +1,11 @@
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% METAVARIABLES
+
+metavar typvar, X {{ tex \alpha }}, Y {{ tex \beta }}, Z ::= {{ repr-locally-nameless }}
+
+metavar expvar, x, y, z ::= {{ repr-locally-nameless }}
+
+metavar nonuse, dir {{ tex \Leftrightarrow }}, R {{ tex \mathit{R} }} ::=  {{ coq nat }}
+
+metavar i, l ::= {{ coq nat }}

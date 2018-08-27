@@ -1,0 +1,12 @@
+*.v.d
+*.vio
+*.vo
+*.aux
+*.glob
+
+/coq/poly/SystemF_ott.v
+/coq/poly/SystemF_inf.v
+/coq/poly/CoqSrc.mk.conf
+/coq/poly/CoqSrc.mk
+/coq/poly/Syntax_ott.v
+/coq/poly/Fii_inf.v

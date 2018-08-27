@@ -1,0 +1,686 @@
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% GRAMMAR (LNgen portion)
+
+grammar
+
+sty, A, B, C, t {{ tex \tau }} :: 'sty_' ::=
+  | nat        ::   :: nat
+  | Top  ::  :: top
+  | X              ::   :: var
+  | A -> B    ::   :: arrow
+  | A & B :: :: and
+  | \ X ** A . B ::   :: all  (+ bind X in B +) {{ tex \forall ( [[X]] [[**]] [[A]] ) .\,[[B]] }}
+  | { l : A } :: :: rcd
+  | ( A )          :: S :: paren {{ coq ([[A]]) }}
+  | A [ X ~> B ]  :: M :: subst {{ coq (open_sty_wrt_sty [[X A]] [[B]]) }} {{ tex [ [[B]] / [[X]] ] [[A]] }}
+  | p ( A )               ::   S :: pa {{ coq 0 }}
+  | str  :: S :: str {{ coq 0 }}
+  | char  :: S :: char {{ coq 0 }}
+
+
+sexp, ee {{ tex \mathit{E} }}  :: 'sexp_'     ::=
+  | x              ::   :: var
+  | Top         :: :: top
+  | i        :: :: lit
+  | \ x . ee        ::   :: abs (+ bind x in ee +) {{ tex [[\]][[x]].\,[[ee]] }}
+  | ee1 ee2          ::   :: app
+  | ee1 ,, ee2    :: :: merge
+  | \ X ** A . ee  ::   :: tabs (+ bind X in ee +) {{ tex \Lambda ( [[X]] [[**]] [[A]] ) .\,[[ee]] }}
+  | ee A  ::   :: tapp
+  | ee : A    :: :: anno
+  | { l = ee } :: :: rcd
+  | ee . l :: :: proj
+  | ee1 [ x ~> ee2 ] :: M :: subst {{ coq (open_sexp_wrt_sexp [[x ee1]][[ee2]]) }} {{ tex [ [[ee2]] / [[x]] ] [[ee1]] }}
+  | ee1 [ X ~> A ]  :: M :: subst2 {{ coq (open_sexp_wrt_sty [[X ee1]] [[A]]) }} {{ tex [ [[A]] / [[X]] ] [[ee1]] }}
+  | ( ee )          :: S :: paren {{ coq ([[ee]]) }}
+
+substitutions
+  single A X :: subst_sty_in
+  single ee x :: subst_sexp_in
+
+freevars
+  A X :: fv_sty_in
+  ee x :: fv_sexp_in
+
+parsing
+  sty_arrow <= sty_and
+  sty_arrow right sty_arrow
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% GRAMMAR  (non LNgen portion)
+
+grammar
+
+sctx, GG {{ tex \Gamma }} :: 'sctx_'     ::= {{ coq list ( atom * sty ) }}
+  | empty          ::   :: Empty {{ coq nil }}
+  | GG , x : A     ::   :: Cons  {{ coq (([[x]]~[[A]])++[[GG]]) }}
+
+
+stctx, DD {{ tex \Delta }} :: 'stctx'  ::= {{ coq list ( atom * sty ) }}
+  | empty   :: ::  Empty  {{ coq nil }}
+  | DD , X ** A  :: :: Cons   {{ coq (([[X]]~[[A]])++[[DD]]) }}
+
+
+CC {{ tex \mathcal{C} }} :: 'C_' ::= {{ com program context }}
+  | __ :: :: Empty
+  | \ x . CC ::  :: Lam
+  % (+ bind x in CC +)
+	{{ tex [[\]][[x]].\,[[CC]] }}
+  | \ X ** A . CC :: :: tabs
+  % (+ bind X in CC +)
+	{{ tex \Lambda (  [[X]]  [[**]] [[A]] ) .\, [[CC]] }}
+  | CC A :: :: tapp
+  | CC ee :: :: AppL
+  | ee CC :: :: AppRd
+  | CC ,, ee :: :: MergeL
+  | ee ,, CC :: :: MergeR
+  | CC : A :: :: Anno
+  | { l = CC } :: :: Rcd
+  | CC . l :: :: Proj
+  | ( CC ) :: S :: Paren {{ coq [[CC]] }}
+
+
+dirflag :: '' ::= {{ com checking direction }}
+   | =>             ::   :: Inf
+   | <=             ::   :: Chk
+
+
+p {{ tex \rho }}, pr {{ tex \rho_{ \mathit{R}   } }} :: 'pa' ::= {{ coq list atom }}
+  | empp :: :: emp   {{ tex \emptyset }}
+  | p [ X -> A  ]   :: :: one {{ tex [[p]] [  [[X]] \mapsto  [[A]] ] }}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+embed {{ coq
+
+Inductive mono : sty -> Prop :=
+| mono_nat : mono sty_nat
+| mono_top : mono sty_top
+| mono_var_f : forall (X:typvar),
+    (mono (sty_var_f X))
+| mono_arrow : forall (A B:sty),
+    (mono A) ->
+    (mono B) ->
+    (mono (sty_arrow A B))
+| mono_and : forall (A B:sty),
+    (mono A) ->
+    (mono B) ->
+    (mono (sty_and A B))
+| mono_rcd : forall (l:i) (A:sty),
+    (mono A) ->
+    (mono (sty_rcd l A)).
+
+
+}}
+
+
+
+
+defns
+Jswft :: '' ::=
+
+defn
+DD |- A :: :: swft :: 'swft_' {{ com type formation judgment }} by
+
+
+----------- :: top
+DD |- Top
+
+
+----------- :: nat
+DD |- nat
+
+
+( X ** A ) in DD
+----------------- :: var
+DD |- X
+
+
+DD |- A
+DD |- B
+--------------- :: arrow
+DD |- A -> B
+
+DD |- A
+DD , X ** A |- B
+-------------------- :: all
+DD |- \ X ** A . B
+
+
+DD |- A
+DD |- B
+--------------- :: and
+DD |- A & B
+
+
+DD |- A
+------------ :: rcd
+DD |- { l : A }
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+defns
+Jswf_env :: '' ::=
+
+defn
+DD ||- GG :: :: swfe :: 'swfe_'  {{ tex }} by
+
+
+--------- :: empty
+DD ||- empty
+
+
+DD ||- GG
+DD |- A
+x `notin` dom GG
+x `notin` dom DD
+---------------- :: var
+DD ||- GG , x : A
+
+
+defns
+Jswf_tenv :: '' ::=
+
+defn
+||- DD :: :: swfte :: 'swfte_'  {{ tex }} by
+
+
+--------- :: empty
+||- empty
+
+
+||- DD
+DD |- A
+X `notin` dom DD
+---------------- :: var
+||- DD , X ** A
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+defns
+JSubtyping :: '' ::=
+
+defn
+DD |- A <: B ~~> c :: :: sub :: S_ by
+
+
+DD |- A
+---------------------- :: refl
+DD |- A <: A ~~> id
+
+
+
+DD |- A2 <: A3 ~~> c1
+DD |- A1 <: A2 ~~> c2
+----------------------- :: trans
+DD |- A1 <: A3 ~~> c1 o c2
+
+
+
+DD |- A
+---------------------- :: top
+DD |- A <: Top ~~> top
+
+
+
+-------------------------------------- :: topArr
+DD |- Top <: Top -> Top ~~> topArr
+
+
+------------------------------- :: topRcd
+DD |- Top <: { l : Top } ~~> id
+
+
+
+DD |- B1 <: A1 ~~> c1
+DD |- A2 <: B2 ~~> c2
+------------------------------------- :: arr
+DD |- A1 -> A2 <: B1 -> B2 ~~> c1 -> c2
+
+
+DD |- A1 <: A2 ~~> c1
+DD |- A1 <: A3 ~~> c2
+---------------------------- :: and
+DD |- A1 <: A2 & A3 ~~> <c1, c2>
+
+
+DD |- A1
+DD |- A2
+------------------------- :: andl
+DD |- A1 & A2 <: A1 ~~> pi1
+
+
+DD |- A1
+DD |- A2
+----------------- :: andr
+DD |- A1 & A2 <: A2 ~~> pi2
+
+
+DD , X ** Top |- B1 <: B2 ~~> c
+DD |- A2 <: A1 ~~> c'
+------------------------------------------------ :: forall
+DD |- \ X ** A1 . B1 <: \ X ** A2 . B2  ~~> \ c
+
+
+
+DD |- A <: B ~~> c
+------------------------------- :: rcd
+DD |- { l : A } <: { l : B } ~~> c
+
+
+DD |- A1
+DD |- A2
+DD |- A3
+----------------------------------------------------- :: distArr
+DD |- (A1 -> A2) & (A1 -> A3) <: A1 -> A2 & A3 ~~> distArr
+
+
+DD |- A
+DD |- B
+--------------------------------------------------- :: distRcd
+DD |- { l : A } & { l : B } <: { l : A & B } ~~> id
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+defns
+Disjoint :: '' ::=
+
+defn DD |- A ** B :: :: disjoint    :: 'D_'  {{ com Disjointness }} by
+
+
+DD |- A
+--------------- :: topL
+DD |- Top ** A
+
+
+DD |- A
+------------------ :: topR
+DD |- A ** Top
+
+
+DD |- A2 ** B2
+DD |- A1
+DD |- B1
+--------------------- :: arr
+DD |- A1 -> A2 ** B1 -> B2
+
+
+DD |- A1 ** B
+DD |- A2 ** B
+--------------- :: andL
+DD |- A1 & A2 ** B
+
+
+DD |- A ** B1
+DD |- A ** B2
+--------------- :: andR
+DD |- A ** B1 & B2
+
+
+DD |- A ** B
+------------------------ :: rcdEq
+DD |- { l : A } ** { l : B }
+
+
+l1 <> l2
+DD |- A
+DD |- B
+------------------------- :: rcdNeq
+DD |- { l1 : A } ** { l2 : B }
+
+
+DD |- A1
+DD |- A2
+---------------------- :: axNatArr
+DD |- nat ** A1 -> A2
+
+
+DD |- A1
+DD |- A2
+---------------------- :: axArrNat
+DD |- A1 -> A2 ** nat
+
+
+
+DD |- A
+---------------------- :: axNatRcd
+DD |- nat ** { l : A }
+
+
+DD |- A
+---------------------- :: axRcdNat
+DD |- { l : A } ** nat
+
+
+DD |- A1
+DD |- A2
+DD |- A
+---------------------- :: axArrRcd
+DD |- A1 -> A2 ** { l : A }
+
+
+DD |- A1
+DD |- A2
+DD |- A
+---------------------- :: axRcdArr
+DD |- { l : A } ** A1 -> A2
+
+
+DD |- \ X ** A1 . B1
+DD |- A
+----------------------------------- :: axRcdAll
+DD |- { l : A } ** \ X ** A1 . B1
+
+
+DD |- \ X ** A1 . B1
+DD |- A
+----------------------------------- :: axAllRcd
+DD |- \ X ** A1 . B1 ** { l : A }
+
+
+DD |- \ X ** A1 . B1
+----------------------------------- :: axAllNat
+DD |- \ X ** A1 . B1 ** nat
+
+
+DD |- \ X ** A1 . B1
+----------------------------------- :: axNatAll
+DD |- nat ** \ X ** A1 . B1
+
+
+DD |- \ X ** A1 . B1
+DD |- A
+DD |- B
+----------------------------------- :: axArrAll
+DD |- A -> B ** \ X ** A1 . B1
+
+
+DD |- \ X ** A1 . B1
+DD |- A
+DD |- B
+----------------------------------- :: axAllArr
+DD |- \ X ** A1 . B1 ** A -> B
+
+
+(X ** A) in DD
+DD |- A <: B ~~> c
+-------------------------- :: tvarL
+DD |- X ** B
+
+
+(X ** A) in DD
+DD |- A <: B ~~> c
+-------------------------- :: tvarR
+DD |- B ** X
+
+
+DD , X ** A1 & A2 |- B1 ** B2
+DD |- A1
+DD |- A2
+------------------------------------------- :: forall
+DD |- \ X ** A1 . B1 ** \ X ** A2 . B2
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+embed {{ coq
+
+Fixpoint sty2ty (A : sty) : ty :=
+  match A with
+    | sty_nat => ty_nat
+    | sty_arrow A1 A2  => ty_arrow (sty2ty A1) (sty2ty A2)
+    | sty_and A1 A2 => ty_prod (sty2ty A1) (sty2ty A2)
+    | sty_top => ty_unit
+    | sty_all _ A => ty_all (sty2ty A)
+    | sty_rcd _ A => sty2ty A
+    | sty_var_b n => ty_var_b n
+    | sty_var_f n => ty_var_f n
+  end.
+
+}}
+
+defns
+JSTyping :: '' ::=
+
+defn DD ; GG  |- ee dirflag A ~~> e ::  :: has_type :: 'T_'
+by
+
+DD ||- GG
+||- DD
+---------------------------- :: top
+DD ; GG |- Top => Top ~~> unit
+
+
+
+DD ||- GG
+||- DD
+-------------------------- :: nat
+DD ; GG |- i => nat ~~> i
+
+
+||- DD
+DD ||- GG
+(x : A) in GG
+--------------------- :: var
+DD ; GG |- x => A ~~> x
+
+
+DD ; GG |- ee1 => A1 -> A2 ~~> e1
+DD ; GG |- ee2 <= A1 ~~> e2
+------------------------------- :: app
+DD ; GG |- ee1 ee2 => A2 ~~> e1 e2
+
+
+
+DD ; GG |- ee1 => A1 ~~> e1
+DD ; GG |- ee2 => A2 ~~> e2
+DD |- A1 ** A2
+----------------------------------------------- :: merge
+DD ; GG |- ee1 ,, ee2 => A1 & A2 ~~> < e1 , e2 >
+
+
+DD ; GG |- ee <= A ~~> e
+------------------------- :: anno
+DD ; GG |- ee : A => A ~~> e
+
+
+DD |- A
+DD , X ** A ; GG |- ee => B ~~> e
+DD ||- GG
+----------------------------------------------- :: tabs
+DD ; GG |- \ X ** A . ee => \ X ** A . B ~~> \ X . e
+
+
+
+DD ; GG |- ee => \ X ** B . C ~~> e
+DD |- t
+mono t
+DD |- t ** B
+-------------------------------------------- :: tapp
+DD ; GG |- ee t => C [ X ~> t ] ~~>  e | t |
+
+
+
+DD ; GG |- ee => A ~~> e
+--------------------------------- :: rcd
+DD ; GG |- {l = ee} => {l : A} ~~> e
+
+
+
+DD ; GG |- ee => {l : A} ~~> e
+------------------------------- :: proj
+DD ; GG |- ee.l => A ~~> e
+
+
+DD |- A
+DD ; GG, x : A |- ee <= B ~~> e
+------------------------------------------- :: abs
+DD ; GG |- \x . ee <= A -> B ~~> \x . e
+
+
+DD ; GG |- ee => B ~~> e
+DD |- A
+DD |- B <: A ~~> c
+--------------------- :: sub
+DD ; GG |- ee <= A ~~> c e
+
+
+% defns
+
+% JCTyping :: '' ::=
+
+% defn CC : ( DD ; GG dirflag1 A ) ~> ( DD' ; GG' dirflag2 B ) ~~> cc ::  :: CTyp :: 'CTyp_' {{ com context typing }} by
+
+
+
+% --------------------------------------- :: empty1
+% __ : (DD ; GG => A) ~> (DD ; GG => A) ~~> __
+
+
+% ----------------------------------------- :: empty2
+% __ : (DD ; GG <= A) ~> (DD ; GG <= A) ~~> __
+
+
+
+% CC : (DD ; GG => A) ~> (DD' ; GG' => A1 -> A2) ~~> cc
+% DD' ; GG' |- ee2 <= A1 ~~> e
+% ----------------------------------------------- :: appL1
+% CC ee2 : (DD ; GG => A) ~> (DD' ; GG' => A2) ~~> cc e
+
+
+% CC : (DD ; GG <= A) ~> (DD' ; GG' => A1 -> A2) ~~> cc
+% DD' ; GG' |- ee2 <= A1 ~~> e
+% ----------------------------------------------- :: appL2
+% CC ee2 : (DD ; GG <= A) ~> (DD' ; GG' => A2) ~~> cc e
+
+
+% CC : (DD ; GG => A) ~> (DD' ; GG' <= A1) ~~> cc
+% DD' ; GG' |- ee1 => A1 -> A2 ~~> e
+% -------------------------------------------- :: appR1
+% ee1 CC : (DD ; GG => A) ~> (DD' ; GG' => A2) ~~> e cc
+
+
+% CC : (DD ; GG <= A) ~> (DD' ; GG' <= A1) ~~> cc
+% DD' ; GG' |- ee1 => A1 -> A2 ~~> e
+% ----------------------------------------- :: appR2
+% ee1 CC : (DD ; GG <= A) ~> (DD' ; GG' => A2) ~~> e cc
+
+
+
+% CC : (DD ; GG => A) ~> (DD' ; GG' => A1) ~~> cc
+% DD' ; GG' |- ee2 => A2 ~~> e
+% DD' |- A1 ** A2
+% ---------------------------------------------------------- :: mergeL1
+% CC ,, ee2 : (DD ; GG => A) ~> (DD' ; GG' => A1 & A2) ~~> < cc , e >
+
+
+% CC : (DD ; GG <= A) ~> (DD' ; GG' => A1) ~~> cc
+% DD' ; GG' |- ee2 => A2 ~~> e
+% DD' |- A1 ** A2
+% -------------------------------------------------------- :: mergeL2
+% CC ,, ee2 : (DD ; GG <= A) ~> (DD' ; GG' => A1 & A2) ~~> < cc , e >
+
+
+
+% CC : (DD ; GG => A) ~> (DD' ; GG' => A2) ~~> cc
+% DD' ; GG' |- ee1 => A1 ~~> e
+% DD' |- A1 ** A2
+% ------------------------------------------------------ :: mergeR1
+% ee1 ,, CC : (DD ; GG => A) ~> (DD' ; GG' => A1 & A2) ~~> < e , cc >
+
+
+% CC : (DD ; GG <= A) ~> (DD' ; GG' => A2) ~~> cc
+% DD' ; GG' |- ee1 => A1 ~~> e
+% DD' |- A1 ** A2
+% ------------------------------------------------------ :: mergeR2
+% ee1 ,, CC : (DD ; GG <= A) ~> (DD' ; GG' => A1 & A2) ~~> < e , cc >
+
+
+% CC : (DD ; GG => A) ~> (DD' ; GG' => B) ~~> cc
+% ---------------------------------------------------- :: rcd1
+% { l = CC } : (DD ; GG => A) ~> (DD' ; GG' => { l : B }) ~~> cc
+
+
+% CC : (DD ; GG <= A) ~> (DD' ; GG' => B) ~~> cc
+% ---------------------------------------------------- :: rcd2
+% { l = CC } : (DD ; GG <= A) ~> (DD' ; GG' => { l : B }) ~~> cc
+
+
+
+% CC : (DD ; GG => A) ~> (DD' ; GG' => { l : B }) ~~> cc
+% -------------------------------------------- :: proj1
+% CC.l : (DD ; GG => A) ~> (DD' ; GG' => B) ~~> cc
+
+
+% CC : (DD ; GG <= A) ~> (DD' ; GG' => { l : B }) ~~> cc
+% -------------------------------------------- :: proj2
+% CC.l : (DD ; GG <= A) ~> (DD' ; GG' => B) ~~> cc
+
+
+% CC : (DD ; GG => B) ~> (DD' ; GG' <= A) ~~> cc
+% ------------------------------------------ :: anno1
+% CC : A : (DD ; GG => B) ~> (DD' ; GG' => A) ~~> cc
+
+
+% CC : (DD ; GG <= B) ~> (DD' ; GG' <= A) ~~> cc
+% ---------------------------------------- :: anno2
+% CC : A : (DD ; GG <= B) ~> (DD' ; GG' => A) ~~> cc
+
+
+
+% CC : (DD ; GG => A) ~> (DD' ; GG', x : A1 <= A2) ~~> cc
+% DD' |- A1
+% ------------------------------------------------------- :: abs1
+% \ x . CC : (DD ; GG => A) ~> (DD' ; GG' <= A1 -> A2) ~~> \x . cc
+
+
+% CC : (DD ; GG <= A) ~> (DD' ; GG', x : A1 <= A2) ~~> cc
+% DD' |- A1
+% ------------------------------------------------------- :: abs2
+% \ x . CC : (DD ; GG <= A) ~> (DD' ; GG' <= A1 -> A2) ~~> \x . cc
+
+
+
+
+% CC : (DD ; GG => A) ~> (DD' , X ** B ; GG' => B') ~~> cc
+% DD' |- B
+% DD' ||- GG'
+% ------------------------------------------------------- :: tabs1
+% \ X ** B . CC : (DD ; GG => A) ~> (DD' ; GG' => \ X ** B . B') ~~> \X . cc
+
+
+
+% CC : (DD ; GG <= A) ~> (DD' , X ** B ; GG' => B') ~~> cc
+% DD' |- B
+% DD' ||- GG'
+% ------------------------------------------------------- :: tabs2
+% \ X ** B . CC : (DD ; GG <= A) ~> (DD' ; GG' => \ X ** B . B') ~~> \X . cc
+
+
+% CC : (DD ; GG => A) ~> (DD' ; GG' => \ X ** A1 . A2) ~~> cc
+% DD' |- B
+% DD' |- B ** A1
+% mono B
+% ----------------------------------------------- :: tapp1
+% CC B : (DD ; GG => A) ~> (DD' ; GG' => A2 [ X ~> B ] ) ~~> cc |B|
+
+
+
+% CC : (DD ; GG <= A) ~> (DD' ; GG' => \ X ** A1 . A2) ~~> cc
+% DD' |- B
+% DD' |- B ** A1
+% mono B
+% ----------------------------------------------- :: tapp2
+% CC B : (DD ; GG <= A) ~> (DD' ; GG' => A2 [ X ~> B ] ) ~~> cc |B|
