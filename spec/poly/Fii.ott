@@ -4,7 +4,7 @@
 
 grammar
 
-sty, A, B, C, t {{ tex \tau }} :: 'sty_' ::=
+sty, A, B, C, t :: 'sty_' ::=
   | nat        ::   :: nat
   | Top  ::  :: top
   | X              ::   :: var
@@ -17,6 +17,7 @@ sty, A, B, C, t {{ tex \tau }} :: 'sty_' ::=
   | p ( A )               ::   S :: pa {{ coq 0 }}
   | str  :: S :: str {{ coq 0 }}
   | char  :: S :: char {{ coq 0 }}
+  | fs => A :: S :: lst {{ coq (applyArrow [[fs]] [[A]]) }} {{ tex [[fs]] \Rightarrow [[A]] }}
 
 
 sexp, ee {{ tex \mathit{E} }}  :: 'sexp_'     ::=
@@ -35,6 +36,7 @@ sexp, ee {{ tex \mathit{E} }}  :: 'sexp_'     ::=
   | ee1 [ X ~> A ]  :: M :: subst2 {{ coq (open_sexp_wrt_sty [[X ee1]] [[A]]) }} {{ tex [ [[A]] / [[X]] ] [[ee1]] }}
   | ( ee )          :: S :: paren {{ coq ([[ee]]) }}
 
+
 substitutions
   single A X :: subst_sty_in
   single ee x :: subst_sexp_in
@@ -45,7 +47,10 @@ freevars
 
 parsing
   sty_arrow <= sty_and
+  sty_lst <= sty_and
+  sty_lst <= sty_arrow
   sty_arrow right sty_arrow
+  sty_all <= sty_and
 
 
 
@@ -84,13 +89,25 @@ CC {{ tex \mathcal{C} }} :: 'C_' ::= {{ com program context }}
 
 
 dirflag :: '' ::= {{ com checking direction }}
-   | =>             ::   :: Inf
-   | <=             ::   :: Chk
+  | =>             ::   :: Inf
+  | <=             ::   :: Chk
 
 
 p {{ tex \rho }}, pr {{ tex \rho_{ \mathit{R}   } }} :: 'pa' ::= {{ coq list atom }}
   | empp :: :: emp   {{ tex \emptyset }}
   | p [ X -> A  ]   :: :: one {{ tex [[p]] [  [[X]] \mapsto  [[A]] ] }}
+
+
+qs :: 'qs_' ::=
+  | A :: :: arr
+  | X ** A :: :: all
+  | l :: :: rcd
+
+seqs, fs {{ tex \mathcal{Q} }} :: 'seqs_' ::= {{ coq list qs }}
+  | []     :: :: empty  {{ coq nil }}
+  | fs , qs  :: :: snocTy {{ tex [[fs]] , [[qs]]   }} {{ coq ([[fs]] ++ (cons [[qs]] nil)) }}
+  | qs , fs :: :: consTy  {{ tex [[qs]] , [[fs]] }} {{ coq (cons [[qs]] [[fs]]) }}
+  | ( fs ) :: S ::  paren {{ coq [[fs]] }}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -115,10 +132,26 @@ Inductive mono : sty -> Prop :=
     (mono (sty_rcd l A)).
 
 
+Fixpoint sty2ty (A : sty) : ty :=
+  match A with
+    | sty_nat => ty_nat
+    | sty_arrow A1 A2  => ty_arrow (sty2ty A1) (sty2ty A2)
+    | sty_and A1 A2 => ty_prod (sty2ty A1) (sty2ty A2)
+    | sty_top => ty_unit
+    | sty_all _ A => ty_all (sty2ty A)
+    | sty_rcd _ A => sty2ty A
+    | sty_var_b n => ty_var_b n
+    | sty_var_f n => ty_var_f n
+  end.
+
+
 }}
 
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Type well-formedness
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 defns
 Jswft :: '' ::=
@@ -162,13 +195,16 @@ DD |- A
 DD |- { l : A }
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Context well-formedness
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 defns
 Jswf_env :: '' ::=
 
 defn
-DD ||- GG :: :: swfe :: 'swfe_'  {{ tex }} by
+DD ||- GG :: :: swfe :: 'swfe_' {{ tex [[DD]] \vdash [[GG]] }}
+by
 
 
 --------- :: empty
@@ -183,11 +219,12 @@ x `notin` dom DD
 DD ||- GG , x : A
 
 
+
 defns
 Jswf_tenv :: '' ::=
 
 defn
-||- DD :: :: swfte :: 'swfte_'  {{ tex }} by
+||- DD :: :: swfte :: 'swfte_'  {{ tex  \vdash [[DD]] }} by
 
 
 --------- :: empty
@@ -202,13 +239,15 @@ X `notin` dom DD
 
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Declarative Subtyping
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 defns
 JSubtyping :: '' ::=
 
 defn
-DD |- A <: B ~~> c :: :: sub :: S_ by
+DD |- A <: B ~~> c :: :: sub :: S_  by
 
 
 DD |- A
@@ -238,6 +277,10 @@ DD |- Top <: Top -> Top ~~> topArr
 DD |- Top <: { l : Top } ~~> id
 
 
+---------------------------------------- :: topAll
+DD |- Top <: \X ** Top . Top ~~> topAll
+
+
 
 DD |- B1 <: A1 ~~> c1
 DD |- A2 <: B2 ~~> c2
@@ -254,16 +297,16 @@ DD |- A1 <: A2 & A3 ~~> <c1, c2>
 DD |- A1
 DD |- A2
 ------------------------- :: andl
-DD |- A1 & A2 <: A1 ~~> pi1
+DD |- A1 & A2 <: A1 ~~> pp1
 
 
 DD |- A1
 DD |- A2
 ----------------- :: andr
-DD |- A1 & A2 <: A2 ~~> pi2
+DD |- A1 & A2 <: A2 ~~> pp2
 
 
-DD , X ** Top |- B1 <: B2 ~~> c
+DD , X ** A2 |- B1 <: B2 ~~> c
 DD |- A2 <: A1 ~~> c'
 ------------------------------------------------ :: forall
 DD |- \ X ** A1 . B1 <: \ X ** A2 . B2  ~~> \ c
@@ -289,7 +332,207 @@ DD |- { l : A } & { l : B } <: { l : A & B } ~~> id
 
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+DD |- A
+DD, X ** A |- B1
+DD, X ** A |- B2
+--------------------------------------------------------------------- :: distPoly
+DD |- (\ X ** A . B1) & (\ X ** A . B2)  <: \X ** A . B1 & B2 ~~> distPoly
+
+
+
+defns
+JCSubtyping :: '' ::=
+
+defn
+A <~: B ~~> c :: :: csub :: CS_  {{ com subtyping without context }} by
+
+
+---------------------- :: refl
+A <~: A ~~> id
+
+
+
+A2 <~: A3 ~~> c1
+A1 <~: A2 ~~> c2
+----------------------- :: trans
+A1 <~: A3 ~~> c1 o c2
+
+
+
+---------------------- :: top
+A <~: Top ~~> top
+
+
+
+-------------------------------------- :: topArr
+Top <~: Top -> Top ~~> topArr
+
+
+------------------------------- :: topRcd
+Top <~: { l : Top } ~~> id
+
+
+---------------------------------------- :: topAll
+Top <~: \X ** Top . Top ~~> topAll
+
+
+
+B1 <~: A1 ~~> c1
+A2 <~: B2 ~~> c2
+------------------------------------- :: arr
+A1 -> A2 <~: B1 -> B2 ~~> c1 -> c2
+
+
+A1 <~: A2 ~~> c1
+A1 <~: A3 ~~> c2
+---------------------------- :: and
+A1 <~: A2 & A3 ~~> <c1, c2>
+
+
+------------------------- :: andl
+A1 & A2 <~: A1 ~~> pp1
+
+
+----------------- :: andr
+A1 & A2 <~: A2 ~~> pp2
+
+
+B1 <~: B2 ~~> c
+A2 <~: A1 ~~> c'
+------------------------------------------------ :: forall
+\ X ** A1 . B1 <~: \ X ** A2 . B2  ~~> \ c
+
+
+
+A <~: B ~~> c
+------------------------------- :: rcd
+{ l : A } <~: { l : B } ~~> c
+
+
+----------------------------------------------------- :: distArr
+(A1 -> A2) & (A1 -> A3) <~: A1 -> A2 & A3 ~~> distArr
+
+
+--------------------------------------------------- :: distRcd
+{ l : A } & { l : B } <~: { l : A & B } ~~> id
+
+
+
+--------------------------------------------------------------------- :: distPoly
+(\ X ** A . B1) & (\ X ** A . B2)  <~: \X ** A . B1 & B2 ~~> distPoly
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Algorithmic Subtyping
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% defns
+% JASubtyping :: '' ::=
+
+% defn
+% A <: fs => B ~~> c :: :: ASub :: A_ {{ tex [[fs]] \vdash [[A]] \prec : [[B]] [[~~>]] [[c]] }}
+% by
+
+
+% ------------------------- :: nat
+% nat <: [] => nat ~~> id
+
+
+
+% ------------------------- :: var
+% X <: [] => X ~~> id
+
+
+% -------------------------- :: top
+% A <: fs => Top ~~> < fs >1 o top
+
+
+
+% A <: fs => B1 ~~> c1
+% A <: fs => B2 ~~> c2
+% ------------------------------------------------------- :: and
+% A <: fs => B1 & B2 ~~> < fs >2 o <c1 , c2>
+
+
+
+% A <: fs => nat ~~> c
+% --------------------------------------------- :: rcdNat
+% { l : A } <: (l , fs) => nat ~~> c
+
+
+% A <: fs => X ~~> c
+% --------------------------------------------- :: rcdVar
+% { l : A } <:  (l  , fs) => X ~~> c
+
+
+
+% A <: (fs , l) => B ~~> c
+% ---------------------------- :: rcd
+% A <: fs => { l : B } ~~> c
+
+
+
+% A <: (fs , B1) => B2 ~~> c
+% ---------------------------- :: arr
+% A <: fs => B1 -> B2 ~~> c
+
+
+% A <: (fs ,  X ** B1) => B2 ~~> c
+% ---------------------------- :: forall
+% A <: fs => \X ** B1 .  B2 ~~> c
+
+
+
+% A1 <: fs => nat ~~> c
+% ---------------------------------- :: andNat1
+% A1 & A2 <: fs => nat ~~> c o pp1
+
+
+% A2 <: fs => nat ~~> c
+% ---------------------------------- :: andNat2
+% A1 & A2 <: fs => nat ~~> c o pp2
+
+
+% A1 <: fs => X ~~> c
+% ---------------------------------- :: andVar1
+% A1 & A2 <: fs => X ~~> c o pp1
+
+
+% A2 <: fs => X ~~> c
+% ---------------------------------- :: andVar2
+% A1 & A2 <: fs => X ~~> c o pp2
+
+
+% A <: [] => A1 ~~> c1
+% A2 <: fs => nat ~~> c2
+% --------------------------------------- :: arrNat
+% A1 -> A2 <: (A, fs) => nat ~~> c1 -> c2
+
+
+% A <: [] => A1 ~~> c1
+% A2 <: fs => X ~~> c2
+% --------------------------------------- :: arrVar
+% A1 -> A2 <: (A, fs) => X ~~> c1 -> c2
+
+
+
+% A <: [] => A1 ~~> c'
+% A2 [ Y ~> X ] <: fs => nat ~~> c
+% --------------------------------------- :: allNat
+% \Y ** A1 . A2 <: (X ** A , fs) => nat ~~> \c
+
+
+% A <: [] => A1 ~~> c'
+% A2 [ Y ~> X ] <: fs => Y' ~~> c
+% --------------------------------------- :: allVar
+% \Y ** A1 . A2 <: (X ** A , fs) => Y' ~~> \c
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Disjointness
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 defns
 Disjoint :: '' ::=
@@ -431,25 +674,10 @@ DD |- \ X ** A1 . B1 ** \ X ** A2 . B2
 
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Typing
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
-
-embed {{ coq
-
-Fixpoint sty2ty (A : sty) : ty :=
-  match A with
-    | sty_nat => ty_nat
-    | sty_arrow A1 A2  => ty_arrow (sty2ty A1) (sty2ty A2)
-    | sty_and A1 A2 => ty_prod (sty2ty A1) (sty2ty A2)
-    | sty_top => ty_unit
-    | sty_all _ A => ty_all (sty2ty A)
-    | sty_rcd _ A => sty2ty A
-    | sty_var_b n => ty_var_b n
-    | sty_var_f n => ty_var_f n
-  end.
-
-}}
 
 defns
 JSTyping :: '' ::=
@@ -542,7 +770,6 @@ DD ; GG |- ee <= A ~~> c e
 % JCTyping :: '' ::=
 
 % defn CC : ( DD ; GG dirflag1 A ) ~> ( DD' ; GG' dirflag2 B ) ~~> cc ::  :: CTyp :: 'CTyp_' {{ com context typing }} by
-
 
 
 % --------------------------------------- :: empty1

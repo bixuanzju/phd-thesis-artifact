@@ -1,7 +1,7 @@
 Require Import Infrastructure.
 Require Import SourceProperty.
 Require Import Omega.
-Require Import Normalize.
+Require Import Assumed.
 Require Import Disjoint.
 Require Import TargetProperty.
 
@@ -92,16 +92,6 @@ Definition size_all (ty : sty * sty) := num_of_all.num_of_all (fst ty) + num_of_
 
 Definition sizeOrder (ty1 ty2 : sty * sty) := size_sum ty1 < size_sum ty2.
 
-(* Definition sizeOrder (ty1 ty2 : sty * sty) : Prop := *)
-(*   (size_all ty1 < size_all ty2) \/ *)
-(*   (size_all ty1 = size_all ty2 /\ size_sum ty1 < size_sum ty2). *)
-
-(* Lemma sizeOrder_wf : well_founded sizeOrder. *)
-(*   red. *)
-(*   intros. *)
-(* Admitted. *)
-
-
 Equations V (A B : sty) (v1 v2 : exp ) : Prop :=
 V A B v1 v2 by rec (A, B) sizeOrder :=
 
@@ -151,7 +141,8 @@ V _ _ v1 v2 := value v1 /\ value v2.
 Solve All Obligations with intros; unfold sizeOrder; unfold size_sum; simpls; try omega.
 
 Next Obligation.
-  (* Well-foundness isssue *)
+  (* One admited case: well-foundness *)
+  admit.
 Admitted.
 
 
@@ -1443,6 +1434,57 @@ Proof with simpl_env; eauto using subtype_well_type, mtsubst_swft, preservation_
       case_if...
       apply V_topl...
 
+  - Case "S-topAll".
+
+    destruct EH as (WFA & WFB & Ty1 & Ty2 & v1 & v0 & Red1 & Red2 & ? & ? & ?).
+    autorewrite with lr_rewrite in *.
+    simpls.
+
+    splits...
+
+    exists (exp_capp co_topAll v1) v0.
+    splits...
+
+    lets Ty3 : preservation_multi_step Ty1 Red1.
+    lets Ty4 : preservation_multi_step Ty2 Red2.
+
+    clear Ty1 Ty2 Red1 Red2.
+
+    gen v0.
+    induction A0; introv ? VH ?; simp V; splits...
+
+    + SCase "A0 = A01 & A02".
+
+      lets (v21 & v22 & ? & ? & ?): prod_canonical Ty4...
+      substs.
+
+      inverts WFB.
+      inverts Ty4 as Ty5 Ty6.
+
+      forwards : IHA0_1 Ty5...
+      apply V_topl...
+      forwards : IHA0_2 Ty6...
+      apply V_topl...
+
+    + SCase "A0 = forall".
+
+      clear IHA0_1 IHA0_2.
+      introv Dis SWF Mono.
+      simp V in VH.
+      inverts VH.
+      forwards : unit_canonical Ty3...
+      substs; simpls.
+
+      forwards Ty5 : typ_tapp (|t|) Ty4...
+      forwards (vv2 & ? & ?) : normalization Ty5...
+
+      exists exp_unit vv2.
+      splits...
+      unfold open_sty_wrt_sty.
+      simpls...
+      eapply V_topl; eauto.
+      rewrite trans_open_sty_rec.
+      eapply preservation_multi_step...
 
   - Case "S-arr".
 
@@ -1921,7 +1963,7 @@ Proof with simpl_env; eauto using subtype_well_type, mtsubst_swft, preservation_
       apply V_andl...
 
 
-  - Case "S-disRcd".
+  - Case "S-distRcd".
 
     autorewrite with lr_rewrite in *.
 
@@ -1990,6 +2032,107 @@ Proof with simpl_env; eauto using subtype_well_type, mtsubst_swft, preservation_
       destruct VH2 as (? & ? & VH2).
       case_if in VH2.
       splits...
+
+  - Case "S-distPoly".
+
+    autorewrite with lr_rewrite in *.
+
+    destruct EH as (WFA & WFB & Ty1 & Ty2 & v1 & v0 & Red1 & Red2 & ? & ? & ?).
+    simpls.
+
+    forwards : rel_d_same PH...
+    inverts WFA as WFA1 WFA2.
+    inverts WFA1.
+    inverts WFA2.
+    lets (? & ? & WW): typing_regular Ty1...
+    inverts WW as WW1 WW2.
+    inverts WW1.
+    inverts WW2.
+
+    splits; auto.
+    (* swft case *)
+    pick fresh X and apply swft_all...
+    unfold open_sty_wrt_sty.
+    simpl...
+    (* typ case *)
+    simpl.
+    econstructor...
+    pick fresh X and apply wft_all...
+    unfold open_ty_wrt_ty.
+    simpls...
+
+
+    (* hard case *)
+    lets Ty3 : preservation_multi_step Ty1 Red1.
+    lets Ty4 : preservation_multi_step Ty2 Red2.
+    lets (v11 & v12 & ? & ? & ?): prod_canonical Ty3...
+    substs.
+    inverts Ty3 as Ty31 Ty32.
+
+    exists (exp_capp co_distPoly (exp_pair v11 v12)) v0.
+    splits...
+
+    clear Ty1 Ty2 Red1 Red2.
+
+    gen v0.
+    induction A0; introv ? VH ?; simp V; splits...
+
+    + SCase "A0 = A01 & A02".
+
+      simpls.
+      lets (v21 & v22 & ? & ? & ?): prod_canonical Ty4...
+      substs.
+
+      inverts WFB.
+      inverts Ty4.
+
+      apply V_andr in VH...
+      destructs VH.
+
+      exists v21 v22.
+      splits...
+      simpls...
+
+
+    + SCase "A0 = forall".
+
+      clear IHA0_1 IHA0_2.
+      introv Dis SWF Mono.
+      simp V in VH.
+      destruct VH as (? & ? & ? & ? & Eq & VH1 & VH2).
+      symmetry in Eq.
+      inverts Eq.
+
+      simp V in VH1.
+      destruct VH1 as (? & ? & VH1).
+      specializes VH1 Dis SWF Mono.
+      simp V in VH2.
+      destruct VH2 as (? & ? & VH2).
+      specializes VH2 Dis SWF Mono.
+
+      destruct VH1 as (vv1 & vv2 & ? & ? & ? & ? & VH1).
+      destruct VH2 as (vv3 & vv4 & ? & ? & ? & ? & VH2).
+      simplifier.
+
+      exists  (exp_pair vv1 vv3) vv2.
+      splits...
+
+      apply star_trans with (b := exp_pair (exp_tapp v11 (|t|)) (exp_tapp v12 (|t|))).
+      econstructor...
+      eapply multi_red_pair...
+
+
+      unfold open_sty_wrt_sty.
+      simpls...
+      eapply V_andl...
+      autorewrite with lr_rewrite...
+      autorewrite with lr_rewrite...
+
+
+      (* WTF *)
+      Unshelve.
+      exact (dom DD).
+      exact (dom DD).
 
 Qed.
 

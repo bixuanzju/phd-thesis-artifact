@@ -39,13 +39,15 @@ co, c :: 'co_' ::=   {{ com coercion }}
   | top :: :: top 
   | c1 -> c2 :: :: arr
   | < c1 , c2 > :: :: pair
-  | pi1 :: :: proj1
-  | pi2 :: :: proj2
-  | \ c :: :: forall {{ tex \Lambda [[c]] }}
+  | pp1 :: :: proj1
+  | pp2 :: :: proj2
+  | \ c :: :: forall {{ tex [[c]]_{\forall} }}
   | distArr :: :: distArr
-  % | distRcd l :: :: distRcd {{ tex \mathsf{dist}_{ \{ [[l]] \} } }}
   | topArr :: :: topArr
-  % | < l > :: :: topRcd {{ tex \mathsf{top}_{ \{ [[l]] \} } }}
+  | topAll :: :: topAll
+  | distPoly :: :: distPoly
+  | < fs >1 :: M :: tran1 {{ coq (calTop [[fs]]) }} {{ tex \llbracket [[fs]] \rrbracket^{\top} }}
+  | < fs >2 :: M :: tran2 {{ coq (calAnd [[fs]]) }} {{ tex \llbracket [[fs]] \rrbracket^{\&} }}
   | ( c ) :: S :: paren {{ coq ([[c]]) }}
 
 substitutions
@@ -58,6 +60,7 @@ freevars
 
 parsing
   ty_arrow <= ty_prod
+  ty_all <= ty_prod
   ty_arrow right ty_arrow
 
 
@@ -109,8 +112,8 @@ terminals :: 'terminals_' ::=
     | -->>     ::  :: red2    {{ tex \longrightarrow^{*} }}
     | ->                 ::   :: arrow      {{ tex \rightarrow }}
     | |-                  ::   :: turnstile  {{ tex \vdash }}
-    | pi1      ::  :: proj1 {{ tex \pi_1 }}
-    | pi2      ::  :: proj2 {{ tex \pi_2 }}
+    | pp1      ::  :: proj1 {{ tex \pi_1 }}
+    | pp2      ::  :: proj2 {{ tex \pi_2 }}
     | <       ::  :: lbr  {{ tex \langle }}
     | >       ::  :: rbr  {{ tex \rangle }}
     | *       :: :: prod {{ tex \times }}
@@ -121,7 +124,7 @@ terminals :: 'terminals_' ::=
     | tri      ::  :: tri       {{ tex \triangleright }}
     | id       ::  :: id  {{ tex \mathsf{id} }}
     | Top       ::  :: Top  {{ tex \top }}
-    | nat       ::  :: nat  {{ tex \mathsf{Nat} }}
+    | nat       ::  :: nat  {{ tex \mathsf{Int} }}
     | char       ::  :: char  {{ tex \mathsf{Char} }}
     | str       ::  :: str  {{ tex \mathsf{String} }}
     | ,,         :: :: Merge  {{ tex \,,,\, }}
@@ -129,7 +132,9 @@ terminals :: 'terminals_' ::=
     | Unit   :: :: Unit  {{ tex \langle \rangle }}
     | top   :: :: top  {{ tex \mathsf{top} }}
     | topArr   :: :: topArr  {{ tex \mathsf{top}_{\rightarrow} }}
+    | topAll   :: :: topAll  {{ tex \mathsf{top}_{\forall} }}
     | distArr   :: :: distArr  {{ tex \mathsf{dist}_{\rightarrow} }}
+    | distPoly   :: :: distPoly  {{ tex \mathsf{dist}_{\forall} }}
     | &         :: :: And  {{ tex \, \& \, }}
     | =>        :: :: Infer  {{ tex \Rightarrow }}
     | <=        :: :: Chk  {{ tex \Leftarrow }}
@@ -139,13 +144,14 @@ terminals :: 'terminals_' ::=
     | ~>      ::  :: to       {{ tex \mapsto  }}
     | __           ::  :: hole    {{ tex [\cdot] }}
     | ==           ::  :: logeq    {{ tex \backsimeq_{log} }}
+    | <~:          :: :: less {{ tex <: }}
 
 
 
 formula :: formula_ ::=
   | judgement       ::   :: judgement
   | ( x : T ) in gg    ::   :: binds1 {{ coq binds [[x]] [[T]] [[gg]] }}
-  | mono t :: :: pred {{ coq mono [[t]] }} {{ tex \mathsf{mono}\ [[t]] }}
+  | mono t :: :: pred {{ coq mono [[t]] }} {{ tex }}
   | X in dd    ::   :: binds2   {{ coq binds [[X]] tt [[dd]] }}
   | x `notin` dom gg ::   :: fresh1   {{ coq ([[x]] `notin` dom ([[gg]])) }}   {{ tex [[x]] \notin [[gg]] }}
   | X `notin` dom dd ::   :: fresh2   {{ coq ([[X]] `notin` dom ([[dd]])) }}   {{ tex [[X]] \notin [[dd]] }}
@@ -182,7 +188,6 @@ Jwft :: '' ::=
 
 defn
 dd |- T :: :: wft :: 'wft_' by
-
 
 
 ----------- :: unit
@@ -279,14 +284,14 @@ dd |- <c1, c2> tri T1 => T2 * T3
 dd |- T1
 dd |- T2
 ------------------------------- :: projl
-dd |- pi1 tri T1 * T2 => T1
+dd |- pp1 tri T1 * T2 => T1
 
 
 
 dd |- T1
 dd |- T2
 ------------------------------- :: projr
-dd |- pi2 tri T1 * T2 => T2
+dd |- pp2 tri T1 * T2 => T2
 
 
 
@@ -305,6 +310,18 @@ dd |- distArr tri (T1 -> T2) * (T1 -> T3) => T1 -> T2 * T3
 
 ------------------------------  :: topArr
 dd |- topArr tri Unit => Unit -> Unit
+
+
+
+--------------------------------------  :: topAll
+dd |- topAll tri Unit => \ X . Unit
+
+
+dd |- \X . T1
+dd |- \X . T2
+---------------------------------------------------------- :: distPoly
+dd |- distPoly tri (\X . T1) * (\X . T2) => \X . T1 * T2
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -427,6 +444,18 @@ value topArr v
 
 
 
+
+value v
+--------------- :: topAll
+value topAll v
+
+
+
+value v
+--------------- :: distPoly
+value distPoly v
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 defns
@@ -441,11 +470,21 @@ e --> e' :: :: step :: 'step_' by
 (topArr unit) unit --> unit
 
 
+----------------------- :: topAll
+(topAll unit) T --> unit
+
+
 value v1
 value v2
 value v3
 ------------------------------------------------- :: distArr
 (distArr < v1 , v2 >) v3 --> < v1 v3, v2 v3 >
+
+
+value v1
+value v2
+------------------------------------------------- :: distPoly
+(distPoly < v1 , v2 >) T --> < v1 T, v2 T >
 
 
 value v
@@ -477,12 +516,12 @@ value v
 value v1
 value v2
 --------------------------------- :: projl
-pi1 <v1, v2> --> v1
+pp1 <v1, v2> --> v1
 
 value v1
 value v2
 --------------------------------- :: projr
-pi2 <v1, v2> --> v2
+pp2 <v1, v2> --> v2
 
 
 value v

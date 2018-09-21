@@ -11,6 +11,18 @@ Coercion exp_var_f : expvar >-> exp.
 
 Definition relation := exp -> exp -> Prop.
 
+
+Definition fv_qs (B : qs) : vars :=
+  match B with
+  | qs_arr A => fv_sty_in_sty A
+  | qs_rcd l => {}
+  | qs_all X A => singleton X `union` fv_sty_in_sty A
+  end.
+
+
+Definition seqs_vars (fs : seqs) : vars :=
+  fold_right (fun qs acc => fv_qs qs \u acc) empty fs.
+
 Ltac gather_atoms ::=
   let A := gather_atoms_with (fun x : vars => x) in
   let B := gather_atoms_with (fun x : var => {{ x }}) in
@@ -24,7 +36,8 @@ Ltac gather_atoms ::=
   let D4 := gather_atoms_with (fun x => fv_sty_in_sty x) in
   let D5 := gather_atoms_with (fun x => fv_sty_in_sexp x) in
   let D6 := gather_atoms_with (fun x => fv_sexp_in_sexp x) in
-  constr:(A \u B \u C1 \u C2 \u C3 \u C4 \u D1 \u D2 \u D3 \u D4 \u D5 \u D6).
+  let D7 := gather_atoms_with (fun x => seqs_vars x) in
+  constr:(A \u B \u C1 \u C2 \u C3 \u C4 \u D1 \u D2 \u D3 \u D4 \u D5 \u D6 \u D7).
 
 
 (* ********************************************************************** *)
@@ -917,6 +930,7 @@ Proof with eauto.
   introv Ctyp.
   induction* Ctyp.
 
+  (* Case 1 *)
   splits...
 
   pick fresh X and apply wft_all.
@@ -924,6 +938,20 @@ Proof with eauto.
 
   pick fresh X and apply wft_all.
   forwards (? & ?): H0 X...
+
+  (* Case 2 *)
+  inverts H.
+  inverts H0.
+
+  splits; eauto.
+  pick fresh X and apply wft_all; auto.
+  unfold open_ty_wrt_ty.
+  simpls; eauto.
+
+
+  Unshelve.
+  exact (dom dd).
+
 Qed.
 
 
@@ -1048,6 +1076,10 @@ Proof with simpl_env; eauto using wft_subst_tb.
     rewrite_env (([(X, tt)] ++ F) ++ E).
     eapply H0...
 
+  - Case "ctyp_distPoly".
+    constructor...
+    replace (ty_all (subst_ty_in_ty P Z T1)) with (subst_ty_in_ty P Z (ty_all T1))...
+    replace (ty_all (subst_ty_in_ty P Z T2)) with (subst_ty_in_ty P Z (ty_all T2))...
 Qed.
 
 
@@ -1229,6 +1261,17 @@ Proof with eauto.
     introv H.
     inverts H as H.
     lets : IHV H...
+
+  - Case "vaue_topAll".
+    introv H.
+    inverts H as H.
+    lets : IHV H...
+
+  - Case "value_distArr".
+    introv H.
+    inverts H as H.
+    lets : IHV H...
+
 Qed.
 
 
@@ -1253,7 +1296,17 @@ Proof with eauto; try sweet.
     inverts H3.
     inverts H1.
 
+  - Case "topAll".
+    inverts Red2...
+    inverts H4.
+    inverts H5.
+
   - Case "distArr".
+    inverts Red2...
+    inverts H6...
+    inverts H7...
+
+  - Case "distPoly".
     inverts Red2...
     inverts H6...
     inverts H7...
@@ -1317,17 +1370,22 @@ Proof with eauto; try sweet.
     inverts Red2...
     erewrite IHRed1...
 
+  - Case "tapp".
+    inverts Red2...
+    inverts Red1...
+    inverts H4...
+    inverts Red1...
+    inverts H6...
+    inverts Red1...
+    inverts Red1...
+    erewrite IHRed1...
+
   - Case "pairr".
     inverts Red2...
     inverts Red1...
     inverts Red1...
     erewrite IHRed1...
 
-  - Case "capp".
-    inverts Red2...
-    inverts Red1...
-    inverts Red1...
-    erewrite IHRed1...
 
 Qed.
 
@@ -1436,18 +1494,27 @@ Proof with eauto using same_eq, same_sym.
   introv Sub.
   induction* Sub.
 
+  (* Case 1 *)
   destruct IHSub.
-
   splits.
 
   pick fresh Y and apply swft_all...
   forwards (? & ?) : H0...
-  apply swft_change with (Δ := ([(Y , sty_top)] ++ DD))...
+  apply swft_change with (Δ := ([(Y , A2)] ++ DD))...
 
   pick fresh Y and apply swft_all...
   forwards (? & ?) : H0...
-  apply swft_change with (Δ := ([(Y , sty_top)] ++ DD))...
 
+  (* Case 2 *)
+  splits...
+
+  pick fresh Y and apply swft_all...
+  unfold open_sty_wrt_sty.
+  simpls...
+
+
+  Unshelve.
+  exact (dom DD).
 Qed.
 
 
@@ -1462,11 +1529,24 @@ Proof with eauto using swft_subst_tb, swft_type.
   generalize dependent F.
   induction WT; intros F EQ Ok; subst; simpl subst_sty_in_sty...
 
+
+  (* Case 1 *)
   pick fresh Y and apply S_forall...
   repeat rewrite subst_sty_in_sty_open_sty_wrt_sty_var...
-  rewrite_env (map (subst_sty_in_sty P Z) (Y ~ sty_top ++ F) ++ E).
+  rewrite_env (map (subst_sty_in_sty P Z) (Y ~ A2 ++ F) ++ E).
   apply H0...
   simpls...
+
+  (* Case 2 *)
+  pick fresh Y and apply S_distPoly...
+  repeat rewrite subst_sty_in_sty_open_sty_wrt_sty_var...
+  rewrite_env (map (subst_sty_in_sty P Z) (Y ~ A ++ F) ++ E).
+  eapply swft_subst_tb; simpls...
+
+  repeat rewrite subst_sty_in_sty_open_sty_wrt_sty_var...
+  rewrite_env (map (subst_sty_in_sty P Z) (Y ~ A ++ F) ++ E).
+  eapply swft_subst_tb; simpls...
+
 Qed.
 
 Lemma sub_subst_push : forall Z E C A B P c,
@@ -1488,6 +1568,9 @@ Proof with eauto using swft_change.
   introv Sub.
   gen Δ'.
   induction Sub; introv Eq...
+
+  eapply S_distPoly...
+
 Qed.
   
 
@@ -1574,9 +1657,20 @@ Proof with eauto using swft_weaken.
   induction Sub; introv EQ Ok; subst...
 
   pick fresh X and apply S_forall...
-  rewrite_env (([(X, sty_top)] ++ G) ++ F ++ E).
+  rewrite_env (([(X, A2)] ++ G) ++ F ++ E).
   eapply H0...
   solve_uniq.
+
+  pick fresh X and apply S_distPoly...
+  rewrite_env (([(X, A)] ++ G) ++ F ++ E).
+  eapply swft_weaken...
+  eapply H0...
+  solve_uniq.
+  rewrite_env (([(X, A)] ++ G) ++ F ++ E).
+  eapply swft_weaken...
+  eapply H1...
+  solve_uniq.
+
 Qed.
 
 
@@ -2463,6 +2557,4 @@ Qed.
 Hint Rewrite mtsubst_ty_open msubst_ty_open_wrt_ty mtsubst_nat mtsubst_top mtsubst_arr mtsubst_forall mtsubst_and mtsubst_rcd mtsubst_open mtsubst_tabs mtsubst_abs msubst_tabs msubst_abs mtsubst_app msubst_unit msubst_lit msubst_app  mtsubst_tapp msubst_tapp mtsubst_pair msubst_pair mtsubst_lit mtsubst_unit mtsubst_capp msubst_capp trans_open_sty trans_subst_sty : lr_rewrite.
 
 
-Hint Resolve mono_lc poly_lc swft_wft swft_wft_nil swft_type lc_sty_ty fv_sty_nil multi_red_tapp multi_red_capp multi_red_pair multi_red_app1 same_eq same_sym star_one star_trans swft_change swft_from_swfte swft_from_swfe.
-
-Hint Resolve mtsubst_swft swft_subst_ctx.
+Hint Resolve mono_lc poly_lc swft_wft swft_wft_nil swft_type lc_sty_ty fv_sty_nil multi_red_tapp multi_red_capp multi_red_pair multi_red_app1 same_eq same_sym star_one star_trans swft_change swft_from_swfte swft_from_swfe mtsubst_swft swft_subst_ctx.

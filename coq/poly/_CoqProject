@@ -1,4 +1,5 @@
 -R . Top
+Assumed.v
 SystemF_inf.v
 Fii_inf.v
 Syntax_ott.v
@@ -6,7 +7,9 @@ LibTactics.v
 Infrastructure.v
 SourceProperty.v
 LR.v
-Normalize.v
 Compatibility.v
 Disjoint.v
 TargetProperty.v
+Coherence.v
+Algorithm.v
+SoundComplete.v

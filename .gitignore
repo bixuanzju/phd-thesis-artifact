@@ -10,3 +10,4 @@
 /coq/poly/CoqSrc.mk
 /coq/poly/Syntax_ott.v
 /coq/poly/Fii_inf.v
+/coq/poly/.coqdeps.d
