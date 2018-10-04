@@ -384,6 +384,7 @@ Hint Resolve applyfs_lc.
 (* ********************************************************************** *)
 
 
+(* BEGIN_ARROWTOP *)
 Lemma arrowTop : forall Q,
     wf_fs Q ->
     csub sty_top (applyfs Q sty_top) (calTop Q).
@@ -402,6 +403,7 @@ Proof with eauto.
 Qed.
 
 
+(* BEGIN_ARROWAND *)
 Lemma arrowAnd : forall Q A B,
     wf_fs Q ->
     lc_sty A ->
@@ -439,6 +441,7 @@ Proof with eauto.
 Qed.
 
 
+(* BEGIN_ALGO_SOUND *)
 Theorem ASub2sub : forall Q A B c,
     asub A Q B c ->
     csub A (applyfs Q B) c.
@@ -525,7 +528,6 @@ Hint Constructors Rel.
 Notation "A ∈Super B" := (Rel B A)  (at level 1).
 
 
-
 Lemma Rel_regular : forall A B,
     A ∈Super B -> lc_sty A /\ lc_sty B.
 Proof with eauto.
@@ -550,6 +552,7 @@ Hint Extern 1 (lc_sty ?T) =>
   end.
 
 
+(* BEGIN_SETREFL *)
 Lemma setRefl : forall A,
     lc_sty A -> A ∈Super A.
 Proof with eauto.
@@ -587,6 +590,7 @@ Qed.
 
 
 
+(* BEGIN_SETTRANS *)
 Lemma setTrans : forall A B C,
     lc_sty B ->
     lc_sty A ->
@@ -1088,6 +1092,7 @@ Proof with eauto; autorewrite with asub_rewrite in *; simpls; try omega.
 Qed.
 
 
+(* BEGIN_SETSUB *)
 Lemma set2Sub : forall Q A B,
     wf_fs Q ->
     lc_sty B ->
@@ -1100,6 +1105,7 @@ Proof.
 Qed.
 
 
+(* BEGIN_SUBREFL *)
 Lemma asub_refl : forall A,
     lc_sty A ->
     exists c, asub A nil A c.
@@ -1577,6 +1583,7 @@ Proof.
 Qed.
 
 
+(* BEGIN_SUBTRANS *)
 Lemma asub_trans : forall A B C c1 c2,
     asub A [] B c1 -> asub B [] C c2 -> exists c, asub A [] C c.
 Proof with eauto.
@@ -1731,6 +1738,7 @@ Qed.
 
 
 
+(* BEGIN_ALGO_COMPLETE *)
 Theorem sub2asub : forall A B c,
     csub A B c -> exists c', asub A nil B c'.
 Proof with eauto.

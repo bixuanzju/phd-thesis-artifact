@@ -515,6 +515,7 @@ Proof with simpl_env; eauto using wft_weaken_head, wft_type.
 Qed.
 
 
+(* BEGIN_WFT_SUBST *)
 Lemma swft_subst_tb : forall F E Z P T B,
   swft (F ++ Z ~ B ++ E) T ->
   swft E P ->

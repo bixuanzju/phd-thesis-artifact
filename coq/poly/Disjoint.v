@@ -101,6 +101,8 @@ Proof with eauto.
 
 Qed.
 
+
+(* BEGIN_DISJOINT_NARROW *)
 Lemma disjoint_narrow : forall F X U T E A B c,
     disjoint (F ++ X ~ U ++ E) A B ->
     sub E T U c ->
@@ -137,6 +139,7 @@ Qed.
 
 
 
+(* BEGIN_DISJOINT_SYMM *)
 Lemma disjoint_symmetric: forall Δ A B,
     disjoint Δ A B ->
     uniq Δ ->
@@ -153,7 +156,7 @@ Proof with eauto.
 Qed.
 
 
-
+(* BEGIN_DISJOINT_CO *)
 Lemma disjoint_sub : forall Δ Δ' A B C c,
     sub Δ' B C c ->
     same_stctx Δ' Δ ->

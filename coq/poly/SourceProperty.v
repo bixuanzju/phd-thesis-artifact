@@ -4,6 +4,7 @@ Require Import Infrastructure.
 
 
 
+(* BEGIN_COERCION_TYPES *)
 Lemma subtype_well_type : forall Δ A B co,
     sub Δ A B co ->
     ctyp (map (const tt) Δ) co (| A |) (| B |).
@@ -39,6 +40,7 @@ Qed.
 
 
 
+(* BEGIN_ELABORATION_SOUND *)
 Lemma elaboration_well_type : forall Δ Γ E A d t,
     swfte Δ ->
     has_type Δ Γ E d A t ->
@@ -66,6 +68,7 @@ Proof with eauto using swfe_wfe, swft_wft, subtype_well_type.
 Qed.
 
 
+(* BEGIN_INFERENCE_UNIQUE *)
 Lemma inference_unique : forall Δ Γ E A1 A2 t1 t2,
     has_type Δ Γ E Inf A1 t1 ->
     has_type Δ Γ E Inf A2 t2 ->

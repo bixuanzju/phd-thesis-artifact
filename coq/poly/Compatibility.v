@@ -27,6 +27,8 @@ Proof with eauto.
   eapply E_coercion1...
 Qed.
 
+
+(* BEGIN_COERCION_COMPAT *)
 Lemma coercion_compatibility1 : forall A0 A1 A2 c D G e1 e2,
     sub D A1 A2 c ->
     swfte D ->
@@ -76,6 +78,7 @@ Hint Extern 1 (swft ?A ?B) =>
   | H: has_type _ _ _ _ _ _ |- _ => apply (proj1 (proj2 (proj2 (styping_regular _ _ _ _ _ _ H))))
   end.
 
+
 Lemma disjoint_compatibility : forall Δ Γ E1 e1 A1 E2 e2 A2 dir dir',
     has_type Δ Γ E1 dir A1 e1 ->
     has_type Δ Γ E2 dir' A2 e2 ->
@@ -101,6 +104,8 @@ Proof with eauto using swft_wft, swfe_wfe, elaboration_well_type, swft_from_swfe
   apply preservation_multi_step with (e := msubst_in_exp g2 (mtsubst_in_exp p e2))...
 Qed.
 
+
+(* BEGIN_MERGE_COMPAT *)
 Lemma pair_compatibility : forall D G e1 e2 e1' e2' A B A' B',
     E_open D G e1 e1' A A' ->
     E_open D G e2 e2' B B' ->

@@ -818,6 +818,7 @@ Proof with eauto.
 Qed.
 
 
+(* BEGIN_LOG_SYMM *)
 Lemma E_sym : forall e1 e2 A B,
     E A B e1 e2 ->
     E B A e2 e1.
@@ -831,6 +832,7 @@ Proof with eauto.
 Qed.
 
 
+(* BEGIN_DISJOINT_MONO *)
 Lemma mono_disjoint_value : forall t1 t2 v1 v2,
     mono t1 ->
     mono t2 ->
@@ -1108,6 +1110,7 @@ Qed.
 
 
 
+(* BEGIN_DISJOINT_VALUE *)
 Lemma disjoint_value : forall v1 v2 A B Δ p,
     disjoint Δ A B ->
     rel_d Δ p ->

@@ -1,4 +1,5 @@
 *.v.d
+*.v-e
 *.vio
 *.vo
 *.aux

@@ -5,6 +5,7 @@ Require Import LR.
 Require Import Compatibility.
 
 
+(* BEGIN_FUNDAMENTAL *)
 Theorem fundamental_prop:  forall Δ Γ E A e e' dir,
     has_type Δ Γ E dir A e ->
     has_type Δ Γ E dir A e' ->
@@ -220,6 +221,7 @@ Fixpoint appctx (ctx : cc) (t : exp) : exp :=
 
 
 
+(* BEGIN_CONGRUENCE *)
 Lemma congruence : forall Δ Δ' Γ Γ' E1 E2 A A' e1 e2 dir dir' C c,
     CTyp C Δ Γ dir A Δ' Γ' dir' A' c ->
     has_type Δ Γ E1 dir A e1 ->
@@ -341,6 +343,7 @@ Definition ctx_equiv Δ Γ E1 E2 A := forall e1 e2 dir dir' C c,
     kleene_equiv (appctx c e1) (appctx c e2).
 
 
+(* BEGIN_ADEQUACY *)
 Lemma adequacy : forall e1 e2,
     E_open nil nil e1 e2 sty_nat sty_nat ->
     kleene_equiv e1 e2.
@@ -356,6 +359,7 @@ Proof with eauto.
 Qed.
 
 
+(* BEGIN_COHERENCE *)
 Theorem coherence : forall Δ Γ E A,
     ctx_equiv Δ Γ E E A.
 Proof with eauto.

@@ -5,7 +5,7 @@ Require Import Infrastructure.
 (* ********************************************************************** *)
 (** * Type Safety *)
 
-
+(* BEGIN_PROGRESS *)
 Theorem progress : forall t T,
   typ nil nil t  T ->
   value t \/ exists t', step t t'.
@@ -79,6 +79,7 @@ Qed.
 
 
 
+(* BEGIN_PRESERVATION *)
 Theorem preservation : forall Δ Γ e e' T,
     typ Δ Γ e T ->
     step e e' ->
